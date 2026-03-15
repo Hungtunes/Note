@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghi Chú Cấu Trúc Cây</title>
+    <style>
+        :root {
+            --primary: #4f46e5;      /* Xanh Indigo hiện đại */
+            --primary-hover: #4338ca;
+            --bg-body: #f3f4f6;      /* Xám nhạt làm nền ngoài */
+            --bg-app: #ffffff;       /* Trắng tinh cho app */
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --hover-bg: #f9fafb;
+            --focus-ring: rgba(79, 70, 229, 0.2);
+        }
+        
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: var(--bg-body);
+            color: var(--text-main); 
+            display: flex;
+            justify-content: center;
+            padding: 20px; /* Thêm khoảng không xung quanh app */
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 850px;
+            background-color: var(--bg-app);
+            min-height: 90vh;
+            border-radius: 12px; /* Bo góc app */
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); /* Bóng đổ 3D nhẹ */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Phần Header */
+        .header { 
+            padding: 20px 25px; 
+            border-bottom: 1px solid var(--border); 
+            background: #fdfdfd;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header-top { 
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; 
+        }
+        .header-top h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--text-main); letter-spacing: -0.5px;}
+        .action-buttons { display: flex; gap: 8px; }
+        
+        button { 
+            background: var(--primary); color: white; border: none; padding: 8px 14px; 
+            border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        button:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-sync { background: #10b981; } /* Xanh lá mượt */
+        .btn-sync:hover { background: #059669; }
+        .btn-settings { background: #f3f4f6; color: #4b5563; padding: 8px 12px; }
+        .btn-settings:hover { background: #e5e7eb; color: #1f2937; }
+        
+        /* Nút nhỏ trên từng dòng */
+        .action-group {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            margin-left: 8px;
+        }
+        .btn-small { 
+            padding: 4px 8px; font-size: 12px; background: transparent; color: var(--text-muted); 
+            border-radius: 6px; font-weight: bold;
+        }
+        .btn-small:hover { background: var(--border); color: var(--text-main); transform: none;}
+        .btn-del:hover { background: #fee2e2; color: #ef4444; }
+        
+        #sync-status { font-size: 12px; color: var(--text-muted); text-align: right; font-style: italic;}
+
+        /* Bảng Cài đặt */
+        #settings-panel {
+            background: var(--hover-bg); padding: 15px 20px; border-radius: 8px; 
+            margin-top: 15px; border: 1px solid var(--border);
+        }
+        .input-group { margin-bottom: 12px; }
+        .input-group label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px; color: #4b5563;}
+        .input-group input { 
+            width: 100%; padding: 10px; border: 1px solid var(--border); 
+            border-radius: 6px; box-sizing: border-box; font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus { outline: none; border-color: var(--primary); }
+        .hidden { display: none !important; }
+
+        /* Cây danh sách */
+        .tree-container { padding: 20px 25px 100px 25px; overflow-y: auto; }
+        .tree-node { margin-top: 4px; }
+        .node-row { 
+            display: flex; align-items: flex-start; padding: 4px 6px; 
+            border-radius: 6px; transition: background-color 0.15s;
+        }
+        .node-row:hover { background-color: var(--hover-bg); }
+        .node-row:hover .action-group { opacity: 1; }
+
+        /* Mũi tên thu gọn/mở rộng */
+        .toggle-wrapper {
+            width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+            margin-top: 4px; border-radius: 4px; cursor: pointer; color: #9ca3af;
+        }
+        .toggle-wrapper:hover { background-color: var(--border); color: #4b5563; }
+        .toggle { 
+            font-size: 11px; transition: transform 0.2s ease; 
+        }
+        .toggle.expanded { transform: rotate(90deg); }
+        .toggle.dot { font-size: 16px; transform: translateY(-2px); }
+
+        /* Ô nhập liệu */
+        .node-input {
+            flex: 1; border: none; background: transparent; font-size: 15px; font-family: inherit;
+            color: var(--text-main); padding: 6px 10px; outline: none; line-height: 1.5; width: 100%;
+            border-radius: 6px; transition: all 0.2s;
+        }
+        .node-input:hover { background-color: rgba(0,0,0,0.01); }
+        .node-input:focus { background-color: #fff; box-shadow: 0 0 0 2px var(--focus-ring); }
+        .node-input::placeholder { color: #9ca3af; font-weight: 300; }
+
+        /* Đường kẻ dọc cho nhánh con (Guide lines) */
+        .children-container { 
+            border-left: 2px solid var(--border); 
+            margin-left: 17px; 
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <div class="header">
+            <div class="header-top">
+                <h2>Cây Ghi Chú</h2>
+                <div class="action-buttons">
+                    <button onclick="addNode(null, true)">+ Thêm Gốc Mới</button>
+                    <button class="btn-sync" onclick="syncToCloud()" id="btn-sync-ui">☁️ Đồng bộ</button>
+                    <button class="btn-settings" onclick="toggleSettings()" title="Cài đặt">⚙️</button>
+                </div>
+            </div>
+            
+            <div id="settings-panel" class="hidden">
+                <p style="font-size: 13px; color: var(--text-muted); margin-top: 0;">Nhập Token và Gist ID để đồng bộ lên GitHub (Tự động lưu trên trình duyệt).</p>
+                <div class="input-group">
+                    <label>GitHub Personal Access Token:</label>
+                    <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx...">
+                </div>
+                <div class="input-group">
+                    <label>Gist ID:</label>
+                    <input type="text" id="gh-gist-id" placeholder="VD: 8a9b...">
+                </div>
+                <button onclick="saveSettings()" style="width: 100%; margin-top: 5px;">Lưu & Tải Dữ Liệu</button>
+            </div>
+            
+            <div id="sync-status">Chưa đồng bộ</div>
+        </div>
+
+        <div class="tree-container" id="tree-root">
+            </div>
+    </div>
+
+    <script>
+        // --- QUẢN LÝ DỮ LIỆU LOCAL & SETTINGS ---
+        let treeData = JSON.parse(localStorage.getItem('myNotesTreeOutliner')) || [];
+        let ghToken = localStorage.getItem('ghToken') || '';
+        let ghGistId = localStorage.getItem('ghGistId') || '';
+
+        function saveLocal() {
+            localStorage.setItem('myNotesTreeOutliner', JSON.stringify(treeData));
+        }
+
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+        function findNodeInfo(nodes, id, parentList = null, index = -1) {
+            for (let i = 0; i < nodes.length; i++) {
+                if (nodes[i].id === id) return { node: nodes[i], parentList: nodes, index: i };
+                if (nodes[i].children.length > 0) {
+                    let found = findNodeInfo(nodes[i].children, id, nodes[i].children, i);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        // --- GIAO DIỆN CÂY ---
+        function renderTree() {
+            const rootEl = document.getElementById('tree-root');
+            rootEl.innerHTML = '';
+            if (treeData.length === 0) {
+                rootEl.innerHTML = '<div style="text-align:center; color:#9ca3af; margin-top: 60px; font-size: 15px;">Bấm "+ Thêm Gốc Mới" để bắt đầu ghi chú</div>';
+                return;
+            }
+            treeData.forEach(node => rootEl.appendChild(createNodeElement(node)));
+        }
+
+        function createNodeElement(node) {
+            const div = document.createElement('div');
+            div.className = 'tree-node';
+
+            const row = document.createElement('div');
+            row.className = 'node-row';
+
+            // Wrapper cho mũi tên
+            const toggleWrapper = document.createElement('div');
+            toggleWrapper.className = 'toggle-wrapper';
+            
+            const toggle = document.createElement('span');
+            // Dùng ký tự tam giác đặc (▶) hoặc dấu chấm (•)
+            if (node.children.length > 0) {
+                toggle.className = `toggle ${node.expanded ? 'expanded' : ''}`;
+                toggle.innerHTML = '▶'; 
+                toggleWrapper.onclick = (e) => {
+                    e.stopPropagation();
+                    node.expanded = !node.expanded;
+                    saveLocal(); renderTree();
+                };
+            } else {
+                toggle.className = 'toggle dot';
+                toggle.innerHTML = '•';
+            }
+            toggleWrapper.appendChild(toggle);
+
+            // Ô nhập liệu
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'node-input';
+            input.id = `input-${node.id}`;
+            input.value = node.title || "";
+            input.placeholder = "Viết gì đó...";
+            
+            input.oninput = (e) => {
+                node.title = e.target.value;
+                saveLocal();
+                setStatus("Có thay đổi (chưa đồng bộ)");
+            };
+            
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addNode(node.id, false);
+                } else if (e.key === 'Backspace' && input.value === '') {
+                    // Tự động xóa dòng nếu đang trống và bấm nút xóa lùi
+                    e.preventDefault();
+                    deleteNode(node.id, true);
+                }
+            };
+
+            // Nhóm nút chức năng
+            const actionGroup = document.createElement('div');
+            actionGroup.className = 'action-group';
+
+            const btnAddChild = document.createElement('button');
+            btnAddChild.className = 'btn-small';
+            btnAddChild.innerHTML = '+ Con';
+            btnAddChild.title = 'Thêm nhánh con';
+            btnAddChild.onclick = (e) => { e.stopPropagation(); addNode(node.id, true); };
+
+            const btnDel = document.createElement('button');
+            btnDel.className = 'btn-small btn-del';
+            btnDel.innerHTML = '✕';
+            btnDel.title = 'Xóa dòng này';
+            btnDel.onclick = (e) => { e.stopPropagation(); deleteNode(node.id); };
+
+            actionGroup.appendChild(btnAddChild);
+            actionGroup.appendChild(btnDel);
+
+            row.appendChild(toggleWrapper); 
+            row.appendChild(input); 
+            row.appendChild(actionGroup);
+            div.appendChild(row);
+
+            // Đệ quy render các con
+            if (node.children.length > 0) {
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = `children-container ${node.expanded ? '' : 'hidden'}`;
+                node.children.forEach(child => childrenContainer.appendChild(createNodeElement(child)));
+                div.appendChild(childrenContainer);
+            }
+            return div;
+        }
+
+        // Thêm node
+        function addNode(targetId, asChild = true) {
+            const newNode = { id: generateId(), title: "", expanded: true, children: [] };
+            
+            if (targetId === null) {
+                treeData.push(newNode); 
+            } else {
+                const info = findNodeInfo(treeData, targetId);
+                if (info) {
+                    if (asChild) {
+                        info.node.children.push(newNode);
+                        info.node.expanded = true;
+                    } else {
+                        info.parentList.splice(info.index + 1, 0, newNode);
+                    }
+                }
+            }
+            saveLocal(); 
+            renderTree();
+            setStatus("Có thay đổi (chưa đồng bộ)");
+            
+            setTimeout(() => {
+                const el = document.getElementById(`input-${newNode.id}`);
+                if (el) el.focus();
+            }, 50);
+        }
+
+        // Xóa node
+        function deleteNode(id, skipConfirm = false) {
+            const info = findNodeInfo(treeData, id);
+            if (!info) return;
+
+            // Nếu dòng có chứa text hoặc có con thì mới hỏi xác nhận
+            const hasContent = info.node.title.trim() !== '' || info.node.children.length > 0;
+            if (hasContent && !skipConfirm) {
+                if (!confirm("Bạn có chắc muốn xóa dòng này (và toàn bộ các nhánh con)?")) return;
+            }
+            
+            info.parentList.splice(info.index, 1);
+            saveLocal();
+            renderTree();
+            setStatus("Có thay đổi (chưa đồng bộ)");
+
+            // Chuyển focus lên dòng phía trên (nếu có)
+            if (info.index > 0) {
+                const prevNodeId = info.parentList[info.index - 1].id;
+                setTimeout(() => {
+                    const el = document.getElementById(`input-${prevNodeId}`);
+                    if (el) {
+                        el.focus();
+                        // Di chuyển con trỏ về cuối dòng text
+                        el.setSelectionRange(el.value.length, el.value.length);
+                    }
+                }, 50);
+            }
+        }
+
+        // --- CÀI ĐẶT & ĐỒNG BỘ ---
+        function setStatus(msg) { document.getElementById('sync-status').innerText = msg; }
+
+        function toggleSettings() {
+            const panel = document.getElementById('settings-panel');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                document.getElementById('gh-token').value = ghToken;
+                document.getElementById('gh-gist-id').value = ghGistId;
+            }
+        }
+
+        function saveSettings() {
+            ghToken = document.getElementById('gh-token').value.trim();
+            ghGistId = document.getElementById('gh-gist-id').value.trim();
+            localStorage.setItem('ghToken', ghToken);
+            localStorage.setItem('ghGistId', ghGistId);
+            
+            if (ghToken && ghGistId) {
+                document.getElementById('settings-panel').classList.add('hidden');
+                loadFromCloud();
+            } else {
+                alert("Vui lòng nhập đủ Token và Gist ID");
+            }
+        }
+
+        async function loadFromCloud() {
+            if (!ghToken || !ghGistId) return;
+            setStatus("⏳ Đang tải từ Cloud...");
+            try {
+                const response = await fetch(`https://api.github.com/gists/${ghGistId}`, {
+                    headers: { 'Authorization': `Bearer ${ghToken}` }
+                });
+                if (!response.ok) throw new Error("Sai Token hoặc Gist ID");
+                
+                const data = await response.json();
+                const content = data.files["notes.json"].content;
+                treeData = JSON.parse(content);
+                saveLocal();
+                renderTree();
+                setStatus("✅ Đã tải dữ liệu");
+            } catch (err) {
+                alert("Lỗi tải dữ liệu: " + err.message);
+                setStatus("❌ Lỗi đồng bộ");
+            }
+        }
+
+        async function syncToCloud() {
+            if (!ghToken || !ghGistId) {
+                alert("Mở biểu tượng ⚙️ để Cài đặt Token và Gist ID trước nhé!");
+                toggleSettings();
+                return;
+            }
+            setStatus("⏳ Đang lưu lên Cloud...");
+            document.getElementById('btn-sync-ui').disabled = true;
+
+            try {
+                const response = await fetch(`https://api.github.com/gists/${ghGistId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${ghToken}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: { "notes.json": { content: JSON.stringify(treeData, null, 2) } }
+                    })
+                });
+
+                if (!response.ok) throw new Error("Lỗi xác thực");
+                setStatus("✅ Đã lưu lên Cloud an toàn");
+            } catch (err) {
+                alert("Lỗi lưu dữ liệu: " + err.message);
+                setStatus("❌ Lỗi đồng bộ");
+            } finally {
+                document.getElementById('btn-sync-ui').disabled = false;
+            }
+        }
+
+        // Khởi động
+        renderTree();
+        if (ghToken && ghGistId && treeData.length === 0) {
+            loadFromCloud();
+        }
+    </script>
+</body>
+</html>
